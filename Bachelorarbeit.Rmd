@@ -1,0 +1,8 @@
+---
+title: "Bachelorarbeit"
+author: "John"
+date: "7/10/2019"
+output: html_document
+---
+
+test <- 1
