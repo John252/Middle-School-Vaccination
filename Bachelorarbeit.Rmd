@@ -5,4 +5,388 @@ date: "7/10/2019"
 output: html_document
 ---
 
-test <- 1
+```{r}
+library(tidyverse)
+library(pander)
+library(sf)
+library(gganimate)
+library(ggrepel)
+library(skimr)
+library(haven)
+library(readxl)
+```
+
+```{r}
+# Datensatz mandate policy data einlesen
+
+tdap_mcv_hpv_policy <- read_xlsx("./data/Data/MS Mandate policy data tables.xlsx", sheet = "Tdap & MCV")
+
+# Daten ansehen
+head(tdap_mcv_hpv_policy)
+```
+
+```{r}
+# Bearbeitung der Daten wie .do File (Z. 41 - 55)
+
+# DC und Virginia 
+
+# NAs bei tdap_allMSgrades 0 setzen
+tdap_mcv_hpv_policy$tdap_allMSgrades[is.na(tdap_mcv_hpv_policy$tdap_allMSgrades)] <- 0
+
+# 
+
+tdap_mcv_hpv_policy <- tdap_mcv_hpv_policy %>% mutate(HPV_year12 = case_when(
+    fips == 51 ~ 2009,
+    fips ==  11 ~ 2009,
+    TRUE ~ 0))
+
+tdap_mcv_hpv_policy$td_MS[is.na(tdap_mcv_hpv_policy$td_MS)] <- 0
+```
+
+```{r}
+# Andere mandates (anderes sheet)  (Z> 57 - 63)
+
+other_ms_mandates <- read_xlsx("./data/Data/MS Mandate policy data tables.xlsx", sheet = "other MS mandates by year 12")
+
+# NAs entfernen (letzte zwei Zeilen)
+other_ms_mandates <- other_ms_mandates %>% drop_na(fips)
+```
+
+```{r}
+# Kontrolle gleichzeitige Veränderungen in childcare/kindergatern (Z. 65-72)
+
+ccK_mandates <- read_xlsx("./data/Data/MS Mandate policy data tables.xlsx", sheet = "other mandates, year of implem.")
+
+ccK_mandates <- ccK_mandates %>% 
+  drop_na(fips) %>%
+  select(-hepB_MSyr, -hepA_MSyr, -varic_MSyr, -varic_2yr, -menin_Byr)
+```
+
+```{r}
+# Insurance mandates (Z. 74-91)
+
+insure_policy <- read_xlsx("./data/Data/Background/Vaccination and well child Insurance Mandates.xlsx", range = "A4:V55")
+
+insure_policy <- insure_policy %>% select(fips, imminsure_month, imminsure_year, preACA_wc_12yo, preACA_imminsure_12yo)
+
+insure_policy$preACA_wc_12yo[is.na(insure_policy$preACA_wc_12yo)] <- 0
+insure_policy$preACA_imminsure_12yo[is.na(insure_policy$preACA_imminsure_12yo)] <- 0
+
+insure_policy$imminsure_month <- as.numeric(insure_policy$imminsure_month)
+insure_policy$imminsure_year <- as.numeric(insure_policy$imminsure_year)
+
+insure_policy <- insure_policy %>%
+  mutate(WC_month = imminsure_month) %>%
+  mutate(WC_year = imminsure_year) %>%
+  mutate(imminsure_month = if_else(preACA_imminsure_12yo==0, 9, imminsure_month)) %>%
+  mutate(imminsure_year = if_else(preACA_imminsure_12yo==0, 2010, imminsure_year)) %>%
+  mutate(WC_month = if_else(preACA_wc_12yo==0, 9, WC_month)) %>%
+  mutate(WC_year = if_else(preACA_wc_12yo==0, 2010, WC_year))
+```
+
+```{r}
+# HPV insure policy (Z. 93-99)
+
+HPV_insure_policy <- read_xlsx("./data/Data/Background/state hpv insurance mandates.xlsx",sheet = "Policy data for stata", range = "A4:R55")
+
+HPV_insure_policy <- HPV_insure_policy %>% select(fips, HPVinsure_ever, HPVinsure_month, HPVinsure_year)
+
+HPV_insure_policy$HPVinsure_ever[is.na(HPV_insure_policy$HPVinsure_ever)] <- 0
+```
+
+```{r}
+# HPV policy 2 (z. 101-105)
+
+HPV_policy2 <- read_xlsx("./data/Data/Background/state hpv insurance mandates.xlsx",sheet = "HPV funding & ed", range = "A3:K54")
+
+HPV_policy2 <- HPV_policy2 %>% select(fips, HPVed_parent_yr, HPVed_stud_yr, HPVaware_yr, HPVpharm_yr)
+```
+
+```{r}
+# nme Policies (z. 106-111)
+
+nme_policy_2014 <- read_xlsx("./data/Data/Background/nme policy.xlsx", range = "A2:G53")
+
+nme_policy_2014 <- nme_policy_2014 %>% select(state, fips, exemp_relig, exemp_pb)
+```
+
+```{r}
+# bis Z.166
+
+# Create one file with all vaccine related policy information
+
+state_year_obs <- read_dta("./data/Data/Background/state_yr_obs00_15.dta")
+
+colnames(state_year_obs)[3] <- "year12"
+
+
+# test des merge
+
+testmerge <- left_join(state_year_obs, tdap_mcv_hpv_policy, by="fips")
+
+
+# testmerge + other_ms_mandates
+
+testmerge2 <- inner_join(testmerge, other_ms_mandates, by=c("fips", "year12", "state"))
+
+testmerge2 <- testmerge2 %>% drop_na(fips)
+
+# testmerge + ccK_mandates
+
+testmerge3 <- left_join(testmerge2, ccK_mandates, by=c("fips", "state"))
+
+# testmerge + nme_policy_2014
+
+testmerge4 <- left_join(testmerge3, nme_policy_2014, by=c("fips", "state"))
+
+# Bearbeiten Datensatz  - Texas, Arkansas added pb eemp in 2003, NM removed pb exemp in 2013
+
+testmerge4 <- testmerge4 %>% 
+  mutate(exemp_pb = if_else(fips == 48 & year12 <= 2002, 0, exemp_pb)) %>%
+  mutate(exemp_pb = if_else(fips == 5 & year12 <= 2002, 0, exemp_pb)) %>%
+  mutate(exemp_pb = if_else(fips == 35 & year12<2013, 1, exemp_pb))
+
+# Merge insure policy
+
+testmerge5 <- left_join(testmerge4, insure_policy, by="fips")
+
+# Bearbeiten (hinzufügen von 1 year lag)
+
+testmerge5 <- testmerge5 %>% mutate(imminsure_12yo = 0) %>%
+  mutate(imminsure_12yo = if_else(year12 > imminsure_year, 1, imminsure_12yo)) %>%
+  mutate(wc_12yo = 0) %>%
+  mutate(wc_12yo = if_else(year12 > WC_year, 1, wc_12yo))
+
+
+# Merge HPV_insure_policy
+
+testmerge6 <- left_join(testmerge5, HPV_insure_policy, by="fips")
+
+# hinzufügen von Variable + 1 year lag
+
+testmerge6 <- testmerge6 %>%
+  mutate(HPVinsure_12yo = 0) %>%
+  mutate(HPVinsure_12yo = if_else(year12 > HPVinsure_year & HPVinsure_year != is.na(HPVinsure_year), 1, HPVinsure_12yo))
+
+# merge HPV_policy2
+
+testmerge7 <- left_join(testmerge6, HPV_policy2, by="fips")
+
+# Bearbeiten der Daten !!!! Eventuell labels hinzufügen??
+
+testmerge7 <- testmerge7 %>% 
+  mutate(HPVed_parent = 0) %>%
+  mutate(HPVed_parent = if_else(year12 > HPVed_parent_yr & HPVed_parent_yr != is.na(HPVed_parent_yr),1,0)) %>%
+  mutate(HPVed_stud = 0) %>%
+  mutate(HPVed_stud = if_else(year12>HPVed_parent_yr & HPVed_parent_yr != is.na(HPVed_parent_yr),1,0)) %>%
+  mutate(HPVaware = 0) %>%
+  mutate(HPVaware = if_else(year12 > HPVaware_yr & HPVaware_yr != is.na(HPVaware_yr),1,0))
+
+testmerge7 <- testmerge7 %>%
+  mutate(HPVpharm_yr = if_else(HPVpharm_yr== "≤2008", "2008", HPVpharm_yr))
+
+testmerge7$HPVpharm_yr <- as.numeric(testmerge7$HPVpharm_yr)
+
+testmerge7 <- testmerge7 %>% 
+  mutate(HPVpharm = if_else(year12 > HPVpharm_yr & HPVpharm_yr != is.na(HPVpharm_yr),1,0))
+```
+
+
+```{r}
+# erstellen von dummyvariablen die anzahl von jahren relativ zur implimentierung zählen
+# z. 168 - 174
+
+datensatz_policy_prep <- testmerge7
+
+datensatz_policy_prep <- datensatz_policy_prep %>% 
+  mutate(TDcont_year12 = ifelse(td_year12< tdap_year12, td_year12, tdap_year12)) %>%
+  mutate(m_Tdap = year12- tdap_year12 + 1) %>%
+  mutate(m_MCV = year12 - MCV_year12 + 1) %>% 
+  mutate(m_TDcont = year12 - TDcont_year12 + 1) %>%
+  mutate(m_HPV = year12 - HPV_year12 + 1)
+
+
+# numeric codieren
+# z. 176 - 181
+
+datensatz_policy_prep$MCV_boost_yr <- as.numeric(datensatz_policy_prep$MCV_boost_yr)
+datensatz_policy_prep$MCVed_yr <- as.numeric(datensatz_policy_prep$MCVed_yr)
+datensatz_policy_prep$MCVed_PS_yr <- as.numeric(datensatz_policy_prep$MCVed_PS_yr)
+datensatz_policy_prep$MCV_PS_yr <- as.numeric(datensatz_policy_prep$MCV_PS_yr)
+
+datensatz_policy_prep <- datensatz_policy_prep %>%
+  mutate(m_MCVboost = year12 - MCV_boost_yr + 1) %>%
+  mutate(m_MCVed = year12 - MCVed_yr + 1) %>%
+  mutate(m_MCVed_PS = year12 - MCVed_PS_yr + 1) %>%
+  mutate(m_MCV_PS = year12 - MCV_PS_yr + 1)
+
+#z. 183 - 190  - Keine ahnung, global (macro in stata?)
+
+datensatz_policy_prep <- datensatz_policy_prep %>%
+  mutate(td_10yrboostyr = ifelse(td_10yrboost==1, td_yr, 0))
+```
+```{r}
+# mehr dummyvars für effektive mandates
+# 193 - 219
+
+datensatz_policy_prep <- datensatz_policy_prep %>%
+  mutate(Tdap_mandate = ifelse(m_Tdap>=1 & m_Tdap != is.na(m_Tdap), 1, 0)) %>%
+  mutate(TDcont_mandate = ifelse(m_TDcont>=1 & m_TDcont != is.na(m_TDcont), 1, 0)) %>%
+  mutate(MCV_mandate = ifelse(m_MCV>=1 & m_MCV != is.na(m_MCV), 1, 0)) %>%
+  mutate(HPV_mandate = ifelse(m_HPV>=1 & m_HPV != is.na(m_HPV), 1, 0)) %>%
+  mutate(MCV_boost = ifelse(m_MCVboost>=1 & m_MCVboost != is.na(m_MCVboost), 1, 0)) %>%
+  mutate(MCVed_PS = ifelse(m_MCVed_PS>=1 & m_MCVed_PS != is.na(m_MCVed_PS), 1, 0)) %>%
+  mutate(MCVed = ifelse(m_MCVed>=1 & m_MCVed != is.na(m_MCVed), 1, 0)) %>%
+  mutate(MCV_waiver = ifelse(m_MCV_PS>=1 & MCV_waiver_any==1, 1, 0)) %>%
+  mutate(MCV_PSmandate = ifelse(m_MCV_PS>=1 & MCV_PSmandate_any==1, 1, 0)) 
+
+```
+
+```{r}
+# 221 - 237
+ 
+datensatz_policy_prep <- datensatz_policy_prep %>%
+  mutate(MSmandate1 = ifelse(TDcont_mandate==1 | MCV_mandate==1 | HPV_mandate ==1, 1, 0)) %>%
+  mutate(MSmandate2 = ifelse(Meas_newlybind==1 | Varic_newlybind==1 | HepB_newlybind ==1 | HepA_newlybind==1, 1, 0)) %>%
+  mutate(catchup_any = ifelse(Meas_newlybind==1 | Varic_newlybind==1 | HepB_newlybind==1 | HepA_newlybind==1, 1, 0)) %>%
+  mutate(catchupXTDcont = catchup_any*TDcont_mandate) %>%
+  mutate(catchupXMCV = catchup_any*MCV_mandate) %>%
+  mutate(TDcontXMCV = TDcont_mandate*MCV_mandate) %>%
+  mutate(catchupXms = catchup_any*MSmandate1)
+```
+
+```{r}
+# 240 - 263 fehlt
+```
+
+
+
+
+```{r}
+# .do File - policy_prep2_year12
+#43 - 49
+
+s317_yr11 <- read_xlsx("./data/Data/Background/Section 317 state funding 1995-2003, 2007-2013.xlsx", sheet = "Stata ready", range = "A2:F819")
+
+s317_yr11 <- s317_yr11 %>%
+  select(-state, -s317_DA, -s317_FA)
+
+colnames(s317_yr11)[2] <- "year11"
+```
+
+
+```{r}
+# 51-67
+
+vfc_yr11 <- read_xlsx("./data/Data/Background/VFC policy 2001-2010.xlsx", range = "A1:I562")
+
+vfc_yr11 <- vfc_yr11 %>% 
+  rename(vfc_uni = universal, vfc_unisel = universal_select, vfc_other = Other, year11 = year) %>%
+  select(-State) %>%
+  mutate(vfc_only = ifelse(is.na(vfc_only), 0, vfc_only)) %>%
+  mutate(vfc_underins= ifelse(is.na(vfc_underins), 0, vfc_underins)) %>%
+  mutate(vfc_underins_select= ifelse(is.na(vfc_underins_select), 0, vfc_underins_select)) %>%
+  mutate(vfc_uni = ifelse(is.na(vfc_uni), 0, vfc_uni)) %>%
+  mutate(vfc_unisel= ifelse(is.na(vfc_unisel), 0, vfc_unisel)) %>%
+  mutate(vfc_other= ifelse(is.na(vfc_other), 0, vfc_other))
+```
+
+
+```{r}
+# 69-74
+
+mdcdthresh_yr11 <- read_dta("./data/Data/medicaid_thresholds_2000_2015.dta")
+
+mdcdthresh_yr11 <- mdcdthresh_yr11 %>%
+  select(-state, -date) %>%
+  rename(year11 = year)
+```
+
+```{r}
+# 76-80
+
+cps_year11 <- read_dta("./data/Data/Background/st_yr_cps.dta")
+
+cps_year11 <- cps_year11 %>%
+  rename(year11= year)
+```
+
+```{r}
+# 81-86
+
+bls_year11 <- read_dta("./data/Data/Background/BLS_st_yr.dta")
+
+bls_year11 <- bls_year11 %>% 
+  rename(year11 = year)
+```
+
+```{r}
+# 88-94
+
+cdc_year11 <- read_dta("./data/Data/cdc_diseases_surv_1996_2015.dta")
+
+cdc_year11 <- cdc_year11 %>% 
+  mutate(pert_rate_yr11 = (pert/total_pop)*100) %>%
+  mutate(menin_rate_yr11 = (menin/total_pop)*100) %>%
+  rename(year11 = year)
+```
+
+```{r}
+# 96-102
+
+cdc_year12 <- read_dta("./data/Data/cdc_diseases_surv_1996_2015.dta")
+
+cdc_year12 <- cdc_year12 %>% 
+  mutate(pert_rate_yr12 = (pert/total_pop)*100) %>%
+  mutate(menin_rate_yr12 = (menin/total_pop)*100) %>%
+  rename(year12 = year)
+```
+
+```{r}
+# 105-109
+
+pharmlaws11 <- read_dta("./data/Data/Background/lawatlas_pharmlaws.dta")
+
+pharmlaws11 <- pharmlaws11 %>%
+  rename(year11 = year)
+```
+
+```{r}
+# 111-
+
+NISteen08_15 <- read_dta("./data/Data/NISteen08_15_raw.dta")
+
+# standardize martial status var across years
+
+NISteen08_15 <- NISteen08_15 %>%
+  mutate(married= case_when(marital2==1 ~ 1,
+                            marital==3 ~ 1,
+                            TRUE ~ 0)) %>%
+  select(-marital) %>%
+  mutate(mom_agegrp_1 = ifelse(AGEGRP_M_I==1,1,0)) %>%
+  mutate(mom_agegrp_2 = ifelse(AGEGRP_M_I==2,1,0)) %>%
+  mutate(mom_agegrp_3 = ifelse(AGEGRP_M_I==2,1,0)) %>%
+  mutate(mom_ed_1 = ifelse(EDUC1==1,1,0)) %>%
+  mutate(mom_ed_2 = ifelse(EDUC1==2,1,0)) %>%
+  mutate(mom_ed_3 = ifelse(EDUC1==3,1,0)) %>%
+  mutate(mom_ed_4 = ifelse(EDUC1==4,1,0)) %>%
+  mutate(teen_ed_1 = ifelse(EDUC_TR==1,1,0)) %>%
+  mutate(teen_ed_2 = ifelse(EDUC_TR==2,1,0)) %>%
+  mutate(teen_ed_3 = ifelse(EDUC_TR==3,1,0)) %>%
+  mutate(teen_ed_4 = ifelse(EDUC_TR==4,1,0)) %>%
+  rename(hh_num = C1R) %>%
+  mutate(child_lt18_1 = ifelse(childnm==1,1,0)) %>%
+  mutate(child_lt18_2 = ifelse(childnm==2,1,0)) %>%
+  mutate(child_lt18_3 = ifelse(childnm==3,1,0)) %>%
+  mutate(ethcat_1 = ifelse(raceethk==1,1,0)) %>%
+  mutate(ethcat_2 = ifelse(raceethk==2,1,0)) %>%
+  mutate(ethcat_3 = ifelse(raceethk==3,1,0)) %>%
+  mutate(ethcat_4 = ifelse(raceethk==4,1,0)) %>%
+  mutate(sex = ifelse(sex==1,0,1)) %>%
+  mutate(ins_answer = ifelse(TIS_INS_1 == 1 | TIS_INS_1 ==2 | TIS_INS_11==1 | TIS_INS_11 ==2 | TIS_INS_2==1 | TIS_INS_2==2 | TIS_INS_3==1 | TIS_INS_3==2 | TIS_INS_3A==1 | TIS_INS_3A==2 | TIS_INS_4==1 | TIS_INS_4==2 | TIS_INS_5==1 | TIS_INS_5==2 | TIS_INS_4_5==1 | TIS_INS_4_5==2 | TIS_INS_6==1 | TIS_INS_6==2,1,0))
+```
+
+
+
+
+
