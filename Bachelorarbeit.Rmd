@@ -449,10 +449,58 @@ NISteen08_15 <- NISteen08_15 %>%
   mutate(VFC_order_3 = ifelse(VFC_ORDER==3,1,0)) %>%
   mutate(VFC_order_1 = ifelse(VFC_ORDER==4 | VFC_ORDER == is.na(VFC_ORDER),NA,VFC_order_1)) %>%
   mutate(VFC_order_2 = ifelse(VFC_ORDER==4 | VFC_ORDER == is.na(VFC_ORDER),NA,VFC_order_2)) %>%
-  mutate(VFC_order_3 = ifelse(VFC_ORDER==4 | VFC_ORDER == is.na(VFC_ORDER),NA,VFC_order_3))
+  mutate(VFC_order_3 = ifelse(VFC_ORDER==4 | VFC_ORDER == is.na(VFC_ORDER),NA,VFC_order_3)) %>%
+  mutate(noschool_grpd = case_when(
+    noschoolr == 0 ~ 0,
+    noschoolr == 1 ~ 1,
+    noschoolr == 2 ~ 1,
+    noschoolr == 3 ~ 1,
+    noschoolr == 4 ~ 1,
+    noschoolr == 5 ~ 1,
+    noschoolr == 6 ~ 2,
+    noschoolr == 7 ~ 3,
+    noschoolr == 8 ~ 4,
+    noschoolr == 9 ~ 5,
+    noschoolr == 96 ~ NA_real_,
+    noschoolr == 77 ~ NA_real_,
+    noschoolr == 99 ~ NA_real_)) %>%
+  mutate(hpv_vaccknow= case_when(
+    HPVI_KNOW == 1 ~ 1,
+    HPVI_KNOW == 2 ~ 0,
+    HPVI_KNOW == 77 ~ NA_real_,
+    HPVI_KNOW == 99 ~ NA_real_)) %>%
+  mutate(hpv_heard= case_when(
+    HPVI_HEARD == 1 ~ 1,
+    HPVI_HEARD == 2 ~ 0,
+    HPVI_HEARD == 77 ~ NA_real_,
+    HPVI_HEARD == 99 ~ NA_real_)) %>%
+  mutate(hpv_rec= case_when(
+    HPVI_RECOM == 1 ~ 1,
+    HPVI_RECOM == 2 ~ 0,
+    HPVI_RECOM == 77 ~ NA_real_,
+    HPVI_RECOM == 99 ~ NA_real_)) %>%
+  mutate(hpv_heard = ifelse(hpv_vaccknow ==1,1,hpv_heard)) %>%
+  rename(fips = state) %>%
+  mutate(hpv3 = case_when(
+    P_NUMHPV>=3 & P_NUMHPV != is.na(P_NUMHPV) ~ 1,
+    P_NUMHPV<3 & P_NUMHPV!= is.na(P_NUMHPV) ~ 0,
+    TRUE ~ NA_real_)) %>%
+  mutate(hpv3_13 = case_when(
+    P_N13HPV>=3 & P_N13HPV!=is.na(P_N13HPV) ~ 1,
+    P_N13HPV<3 & P_N13HPV!=is.na(P_N13HPV) ~ 0,
+    TRUE ~ NA_real_)) %>%
+  mutate(hpv3_12 = case_when(
+    P_N13HPV>=2 & P_N13HPV!=is.na(P_N13HPV) ~ 1,
+    P_N13HPV<2 & P_N13HPV!=is.na(P_N13HPV) ~ 0,
+    TRUE ~ NA_real_)) %>%
+  mutate(hpv1_13=  P_U13HPV) %>%
+  mutate(TD_10_13 = ifelse(P_N13TDP_POST10>=1 & P_N13TDP_POST10!=is.na(P_N13TDP_POST10),1,P_N13TDP_POST10)) %>%
+  mutate(year13 = year-age+13) %>%
+  mutate(year12 = year-age+12) %>%
+  mutate(year11 = year-age+11) %>%
+  filter(!fips == 66 | fips == 72 | fips == 78)
   
 ```
-
 
 
 
