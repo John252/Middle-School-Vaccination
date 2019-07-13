@@ -383,8 +383,105 @@ NISteen08_15 <- NISteen08_15 %>%
   mutate(ethcat_3 = ifelse(raceethk==3,1,0)) %>%
   mutate(ethcat_4 = ifelse(raceethk==4,1,0)) %>%
   mutate(sex = ifelse(sex==1,0,1)) %>%
-  mutate(ins_answer = ifelse(TIS_INS_1 == 1 | TIS_INS_1 ==2 | TIS_INS_11==1 | TIS_INS_11 ==2 | TIS_INS_2==1 | TIS_INS_2==2 | TIS_INS_3==1 | TIS_INS_3==2 | TIS_INS_3A==1 | TIS_INS_3A==2 | TIS_INS_4==1 | TIS_INS_4==2 | TIS_INS_5==1 | TIS_INS_5==2 | TIS_INS_4_5==1 | TIS_INS_4_5==2 | TIS_INS_6==1 | TIS_INS_6==2,1,0))
+  mutate(ins_answer = ifelse(TIS_INS_1 == 1 | TIS_INS_1 ==2 | TIS_INS_11==1 | TIS_INS_11 ==2 | TIS_INS_2==1 | TIS_INS_2==2 | TIS_INS_3==1 | TIS_INS_3==2 | TIS_INS_3A==1 | TIS_INS_3A==2 | TIS_INS_4==1 | TIS_INS_4==2 | TIS_INS_5==1 | TIS_INS_5==2 | TIS_INS_4_5==1 | TIS_INS_4_5==2 | TIS_INS_6==1 | TIS_INS_6==2,1,0)) %>%
+  mutate(ins_private = case_when(TIS_INS_1 == 1 ~ 1,
+                                 TIS_INS_1 == 2 ~ 0,
+                                 TRUE ~ NA_real_)) %>%
+  mutate(ins_caid = case_when(TIS_INS_2==1 ~ 1,
+                              TIS_INS_3==1 ~ 1,
+                              TIS_INS_3A==1 ~ 1,
+                              TIS_INS_2==2 ~ 0,
+                              TIS_INS_3==2 ~ 0,
+                              TIS_INS_3A==2 ~ 0,
+                              TRUE ~ NA_real_)) %>%
+  mutate(ins_public = case_when(TIS_INS_2==1 ~ 1,
+                                TIS_INS_3==1 ~ 1,
+                                TIS_INS_3A==1 ~ 1,
+                                TIS_INS_4==1 ~ 1,
+                                TIS_INS_5==1 ~ 1,
+                                TIS_INS_4_5==1 ~ 1,
+                                TRUE ~ NA_real_)) %>%
+  mutate(ins_public= ifelse(ins_public == is.na(ins_public) & ins_caid ==0,0,ins_public)) %>%
+  mutate(ins_public= ifelse(ins_public == is.na(ins_public) & TIS_INS_4==2 & TIS_INS_5==2,0,ins_public)) %>%
+  mutate(ins_public= ifelse(ins_public == is.na(ins_public) & TIS_INS_4_5 ==2,0,ins_public)) %>%
+  mutate(ins_other = case_when(TIS_INS_6 == 1 ~ 1,
+                               TIS_INS_6 == 2 ~ 0,
+                               TRUE ~ NA_real_)) %>%
+  mutate(facility_1 = ifelse(facility==1,1,0)) %>%
+  mutate(facility_2 = ifelse(facility==2,1,0)) %>%
+  mutate(facility_3 = ifelse(facility==3,1,0)) %>%
+  mutate(facility_4 = ifelse(facility==4,1,0)) %>%
+  mutate(facility_5 = ifelse(facility==5,1,0)) %>%
+  mutate(facility_1 = ifelse(facility==6 | is.na(facility),NA,facility_1)) %>%
+  mutate(facility_2 = ifelse(facility==6 | is.na(facility),NA,facility_2)) %>%
+  mutate(facility_3 = ifelse(facility==6 | is.na(facility),NA,facility_3)) %>%
+  mutate(facility_4 = ifelse(facility==6 | is.na(facility),NA,facility_4)) %>%
+  mutate(facility_5 = ifelse(facility==6 | is.na(facility),NA,facility_5)) %>%
+  rename(CKUP_11_12_nis = CKUP_11_12) %>%
+  mutate(CKUP_11_12 = case_when(
+    CKUP_11_12_nis == 2 ~ 0,
+    CKUP_11_12_nis == 1 ~ 1,
+    CKUP_11_12_nis == 77 ~ NA_real_,
+    CKUP_11_12_nis == 99 ~ NA_real_,
+    TRUE ~ CKUP_11_12_nis)) %>%
+  mutate(CKUP_11_12 = case_when(CKUP_AGE == 11 ~ 1,
+                                CKUP_AGE == 12 ~ 1,
+                                CKUP_AGE <= 10 ~ 0,
+                                TRUE ~ CKUP_11_12)) %>%
+  mutate(income_cat1 = case_when(INCQ298A == 3 | INCQ298A == 4 ~ 1,
+                                 INCQ298A == 5 | INCQ298A == 6 ~ 2,
+                                 INCQ298A == 7 | INCQ298A == 8 ~ 3,
+                                 INCQ298A == 9 | INCQ298A == 10 ~ 4,
+                                 INCQ298A == 11 ~ 5,
+                                 INCQ298A == 12 ~ 6,
+                                 INCQ298A == 13 ~ 7,
+                                 INCQ298A == 14 ~ 8,
+                                 INCQ298A == 77 | INCQ298A == 99 ~ NA_real_)) %>%
+  mutate(income_cat2 = case_when(INCQ298A == 3 | INCQ298A == 4 | INCQ298A == 5 | INCQ298A == 6 ~ 1,
+                                 INCQ298A == 7 | INCQ298A == 8 | INCQ298A == 9 | INCQ298A == 10 ~ 2,
+                                 INCQ298A == 11 | INCQ298A == 12 ~ 3,
+                                 INCQ298A == 13 ~ 4,
+                                 INCQ298A == 14 ~ 5,
+                                 INCQ298A == 77 | INCQ298A == 99 ~ NA_real_)) %>%
+  mutate(flu_10_13 = ifelse(P_N13FLU > 1 & P_N13FLU != is.na(P_N13FLU),1, P_N13FLU)) %>%
+  mutate(VFC_order_1 = ifelse(VFC_ORDER==1,1,0)) %>%
+  mutate(VFC_order_2 = ifelse(VFC_ORDER==2,1,0)) %>%
+  mutate(VFC_order_3 = ifelse(VFC_ORDER==3,1,0)) %>%
+  mutate(VFC_order_1 = ifelse(VFC_ORDER==4 | VFC_ORDER == is.na(VFC_ORDER),NA,VFC_order_1)) %>%
+  mutate(VFC_order_2 = ifelse(VFC_ORDER==4 | VFC_ORDER == is.na(VFC_ORDER),NA,VFC_order_2)) %>%
+  mutate(VFC_order_3 = ifelse(VFC_ORDER==4 | VFC_ORDER == is.na(VFC_ORDER),NA,VFC_order_3))
+  
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
