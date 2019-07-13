@@ -352,7 +352,7 @@ pharmlaws11 <- pharmlaws11 %>%
 ```
 
 ```{r}
-# 111-
+# 111-314
 
 NISteen08_15 <- read_dta("./data/Data/NISteen08_15_raw.dta")
 
@@ -504,6 +504,11 @@ NISteen08_15 <- NISteen08_15 %>%
 
 
 
+```{r}
+# Merge von policyprep1 und policyprep2
+
+datensatz_policy_prep2313 <- left_join(datensatz_policy_prep, NISteen08_15, by=c("fips", "year12"))
+```
 
 
 
