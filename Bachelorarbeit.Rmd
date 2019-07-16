@@ -508,6 +508,24 @@ NISteen08_15 <- NISteen08_15 %>%
 # Merge von policyprep1 und policyprep2
 
 datensatz_policy_prep2313 <- left_join(datensatz_policy_prep, NISteen08_15, by=c("fips", "year12"))
+
+# merge policyprep, cps_year11
+
+datensatz_policy_prep2313 <- left_join(datensatz_policy_prep2313, cps_year11, by=c("fips", "year11"))
+
+datensatz_policy_prep2313 <- left_join(datensatz_policy_prep2313, bls_year11, by=c("fips", "year11"))
+
+datensatz_policy_prep2313 <- left_join(datensatz_policy_prep2313, cdc_year11, by=c("fips", "year11"))
+
+datensatz_policy_prep2313 <- left_join(datensatz_policy_prep2313, cdc_year12, by=c("fips", "year12"))
+
+datensatz_policy_prep2313 <- left_join(datensatz_policy_prep2313, mdcdthresh_yr11, by=c("fips", "year11"))
+
+datensatz_policy_prep2313 <- left_join(datensatz_policy_prep2313, s317_yr11, by=c("fips", "year11"))
+
+datensatz_policy_prep2313 <- left_join(datensatz_policy_prep2313, vfc_yr11, by=c("fips", "year11"))
+
+datensatz_policy_prep2313 <- left_join(datensatz_policy_prep2313, pharmlaws11, by=c("fips", "year11"))
 ```
 
 
